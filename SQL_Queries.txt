@@ -1,0 +1,50 @@
+*Year-wise Trend of Rice Production Across States (Top 3)*
+With Top3states AS (select state_name,sum(rice) as Rice_Yield from Production group by state_name order by Rice_Yield desc limit 3) 
+select state_name,Year,Round(Sum(rice),2) as Rice_Yield from Production  where state_name IN(select state_name from Top3states)group by state_name,year order by state_name,year desc
+
+*Top 5 Districts by Wheat Yield Increase Over the Last 5 Years*
+SELECT dist_name,round((MAX(wheat) - MIN(wheat)),1) AS yield_increase FROM Yield WHERE year >= (SELECT MAX(year) - 4 FROM Yield) 
+GROUP BY dist_name order by yield_increase desc limit 5
+
+*States with the Highest Growth in Oilseed Production (5-Year Growth Rate)*
+WITH yearly_production AS (SELECT state_name,year,SUM(oilseeds) AS total_oilseed_prod FROM Production GROUP BY state_name, year),
+growth_rate AS (SELECT  p1.state_name, p1.year AS start_year, p2.year AS end_year, p2.total_oilseed_prod - p1.total_oilseed_prod AS absolute_growth,
+ROUND((p2.total_oilseed_prod - p1.total_oilseed_prod) * 100.0 / NULLIF(p1.total_oilseed_prod, 0),2) AS growth_rate_percentage
+FROM yearly_production p1 JOIN yearly_production p2  ON p1.state_name = p2.state_name  AND p2.year = p1.year + 5)
+SELECT state_name,start_year,end_year,absolute_growth,growth_rate_percentage FROM growth_rateORDER BY growth_rate_percentage DESC LIMIT 5;
+
+
+*District-wise Correlation Between Area and Production for Major Crops (Rice, Wheat, and Maize)*
+SELECT p.dist_name,round(sum(p.rice),1) as Rice_prod,round(sum(p.wheat),1) as Wheat_Prod,round(sum(p.maize),1) as Maize_prod,
+round(sum(a.rice),1) as Rice_Area,round(sum(a.wheat),1) as Wheat_Area,round(sum(a.maize),1) as Maize_Area
+from Production p inner join Area a on p.dist_name=a.dist_name and p.year = a.year group by p.dist_name order by dist_name desc
+
+*Yearly Production Growth of Cotton in Top 5 Cotton Producing States*
+WITH ProductionRanking AS (SELECT state_name,year,SUM(cotton) AS total_production FROM Production GROUP BY state_name, year),
+YearlyGrowth AS (SELECT a.state_name,a.year,a.total_production,a.total_production - COALESCE(b.total_production, 0) AS production_growth
+FROM ProductionRanking a LEFT JOIN ProductionRanking b ON a.state_name = b.state_name AND a.year = b.year + 1),
+Top3states AS (SELECT state_name, SUM(cotton) AS cotton_Yield FROM Yield
+GROUP BY state_name ORDER BY cotton_Yield DESC LIMIT 5)
+SELECT state_name, year,total_production, production_growth FROM YearlyGrowth 
+WHERE state_name IN (SELECT state_name FROM Top3states)ORDER BY production_growth DESC;
+
+*Districts with the Highest Groundnut Production in 2020*
+select dist_name,sum(groundnut) as Groundnut_prod from Production where year = '2017' group by dist_name order by Groundnut_prod desc
+
+*Annual Average Maize Yield Across All States*
+select state_name,year,round(avg(maize),2) as Avg_Maize from Yield group by state_name,year order by state_name,year desc
+
+*Total Area Cultivated for Oilseeds in Each State*
+select state_name,round(sum(oilseeds),2) as Total_Area from Area group by state_name order by Total_Area desc
+
+*Districts with the Highest Rice Yield*  
+select dist_name,sum(rice) as Rice_yield from Yield group by dist_name order by Rice_yield desc
+
+*Compare the Production of Wheat and Rice for the Top 5 States Over 10 Years*
+WITH top5rice AS (SELECT state_name, ROUND(SUM(rice), 2) AS Rice_prod FROM Production GROUP BY state_name ORDER BY Rice_prod DESC LIMIT 5),
+top5wheat AS (SELECT state_name, ROUND(SUM(wheat), 2) AS Wheat_prod FROM Production GROUP BY state_name ORDER BY Wheat_prod DESC LIMIT 5),
+year_data AS (SELECT MAX(year) AS max_year FROM Production),
+top_states AS (SELECT state_name FROM top5rice UNION SELECT state_name FROM top5wheat)
+SELECT p.state_name,p.year,ROUND(SUM(p.rice), 2) AS Rice_prod,ROUND(SUM(p.wheat), 2) AS Wheat_prod FROM Production p
+JOIN top_states ts ON p.state_name = ts.state_name CROSS JOIN year_data yd WHERE p.year BETWEEN yd.max_year - 9 AND yd.max_year
+GROUP BY p.state_name, p.year ORDER BY p.state_name, p.year DESC;
